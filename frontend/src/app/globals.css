@@ -2,26 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --background: #f3f4f6; /* Cinza claro para fundos, alinhado com bg-gray-100 */
-  --foreground: #1f2937; /* Cinza escuro para texto, alinhado com text-gray-800 */
-  --primary: #312e81; /* Índigo escuro para cabeçalhos, alinhado com bg-indigo-900 */
-  --accent: #f59e0b; /* Amarelo para botões, alinhado com bg-yellow-500 */
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #111827; /* Cinza escuro para fundo no modo escuro */
-    --foreground: #e5e7eb; /* Cinza claro para texto no modo escuro */
-    --primary: #4f46e5; /* Índigo mais claro para o modo escuro */
-    --accent: #fbbf24; /* Amarelo mais claro para o modo escuro */
-  }
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+.hero-gradient {
+  background: linear-gradient(90deg, #4f46e5, #10b981);
 }
