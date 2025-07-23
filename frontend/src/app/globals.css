@@ -2,6 +2,10 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --font-inter: 'Inter', sans-serif;
+}
+
 .hero-gradient {
   background: linear-gradient(90deg, #4f46e5, #10b981);
 }
