@@ -10,6 +10,7 @@ export default function Checkout() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
+  const backendUrl = 'https://ebook-recomecos-backend.onrender.com/api/pedido';
 
   // Função pra validar CPF
   const validarCPF = (cpf: string) => {
