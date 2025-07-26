@@ -6,12 +6,12 @@ const axiosRetry = require('axios-retry').default;
 require('dotenv').config();
 
 const app = express();
-const port = process.env.PORT || 5000;
+const port = process.env.PORT || 5000; // Usar $PORT do Render, fallback pra 5000 localmente
 
-// Middleware manual para CORS (fallback)
+// Middleware manual para CORS
 app.use((req, res, next) => {
   const origin = req.get('Origin');
-  const allowedOrigins = ['http://localhost:3000', 'https://ebook-recomecos-frontend.onrender.com'];
+  const allowedOrigins = ['http://localhost:3000', 'https://ebook-recomecos.onrender.com'];
   if (allowedOrigins.includes(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -28,7 +28,7 @@ app.use((req, res, next) => {
 
 // Configurar CORS com middleware cors
 const corsOptions = {
-  origin: ['http://localhost:3000', 'https://ebook-recomecos-frontend.onrender.com'],
+  origin: ['http://localhost:3000', 'https://ebook-recomecos.onrender.com'],
   methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
@@ -42,6 +42,12 @@ app.options('/api/pedido', cors(corsOptions), (req, res) => {
 });
 
 app.use(express.json());
+
+// Rota raiz para debug
+app.get('/', (req, res) => {
+  console.log('Requisição recebida em /');
+  res.send('Servidor Ebook Recomeços Backend rodando!');
+});
 
 // Configurar conexão com o banco
 const pool = new Pool({
@@ -136,7 +142,7 @@ app.post('/api/pedido', async (req, res) => {
         }
       ],
       payment_methods: paymentMethod === 'pix' ? [{ type: 'BOLETO' }] : paymentMethods,
-      redirect_url: 'https://ebook-recomecos-frontend.onrender.com',
+      redirect_url: 'https://ebook-recomecos.onrender.com',
       notification_urls: ['https://ebook-recomecos-backend.onrender.com/api/notificacao'],
       payment_notification_urls: ['https://ebook-recomecos-backend.onrender.com/api/notificacao']
     };
@@ -212,8 +218,12 @@ app.post('/api/notificacao', async (req, res) => {
 
 // Iniciar servidor com log detalhado
 app.listen(port, async () => {
+  console.log(`Iniciando servidor no ambiente: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`Usando porta: ${port}`);
+  console.log(`PAGBANK_TOKEN: ${process.env.PAGBANK_TOKEN ? 'definido' : 'não definido'}`);
+  console.log(`DATABASE_URL: ${process.env.DATABASE_URL ? 'definido' : 'não definido'}`);
   try {
-    console.log(`Tentando conectar ao banco com DATABASE_URL: ${process.env.DATABASE_URL ? 'definido' : 'não definido'}`);
+    console.log('Tentando conectar ao banco...');
     await pool.query('SELECT 1');
     console.log('Conexão com o banco estabelecida com sucesso');
   } catch (err) {
