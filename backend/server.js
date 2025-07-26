@@ -210,13 +210,14 @@ app.post('/api/notificacao', async (req, res) => {
   }
 });
 
-// Iniciar servidor
+// Iniciar servidor com log detalhado
 app.listen(port, async () => {
   try {
+    console.log(`Tentando conectar ao banco com DATABASE_URL: ${process.env.DATABASE_URL ? 'definido' : 'não definido'}`);
     await pool.query('SELECT 1');
     console.log('Conexão com o banco estabelecida com sucesso');
   } catch (err) {
-    console.error('Erro na conexão com o banco:', err.message);
+    console.error('Erro na conexão com o banco:', err.message, err.stack);
   }
   console.log(`Servidor rodando na porta ${port}`);
 });
