@@ -2,20 +2,45 @@ const express = require('express');
 const cors = require('cors');
 const { Pool } = require('pg');
 const axios = require('axios');
-const axiosRetry = require('axios-retry').default; // Corrigido
+const axiosRetry = require('axios-retry').default;
 require('dotenv').config();
 
 const app = express();
 const port = process.env.PORT || 5000;
 
-// Configurar CORS
-app.use(cors({
+// Middleware manual para CORS (fallback)
+app.use((req, res, next) => {
+  const origin = req.get('Origin');
+  const allowedOrigins = ['http://localhost:3000', 'https://ebook-recomecos-frontend.onrender.com'];
+  if (allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Vary', 'Origin');
+  }
+  if (req.method === 'OPTIONS') {
+    console.log('Requisição OPTIONS manual recebida:', { origin, headers: req.headers });
+    return res.sendStatus(204);
+  }
+  next();
+});
+
+// Configurar CORS com middleware cors
+const corsOptions = {
   origin: ['http://localhost:3000', 'https://ebook-recomecos-frontend.onrender.com'],
   methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
-}));
-app.options('*', cors());
+};
+app.use(cors(corsOptions));
+
+// Rota explícita para OPTIONS /api/pedido
+app.options('/api/pedido', cors(corsOptions), (req, res) => {
+  console.log('Requisição OPTIONS específica recebida em /api/pedido:', { origin: req.get('Origin'), headers: req.headers });
+  res.sendStatus(204);
+});
+
 app.use(express.json());
 
 // Configurar conexão com o banco
@@ -44,7 +69,7 @@ axiosRetry(axiosInstance, {
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
-  console.log('Requisição recebida em /api/health');
+  console.log('Requisição recebida em /api/health', { origin: req.get('Origin') });
   res.json({ status: 'OK' });
 });
 
@@ -62,6 +87,7 @@ app.get('/api/debug-dns', async (req, res) => {
 
 // Endpoint para criar pedido
 app.post('/api/pedido', async (req, res) => {
+  console.log('Requisição POST recebida em /api/pedido:', { origin: req.get('Origin') });
   const { nome, email, endereco, cpf, livroId, amount, paymentMethod } = req.body;
 
   try {
