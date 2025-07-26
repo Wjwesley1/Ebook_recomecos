@@ -9,8 +9,11 @@ export default function Checkout() {
     email: '',
     cpf: '',
     endereco: '',
+    paymentMethod: 'creditCard', // Opções: creditCard, pix, boleto
   });
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState('');
 
   useEffect(() => {
     setIsClient(true);
@@ -19,10 +22,20 @@ export default function Checkout() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setSuccess('');
+    setLoading(true);
 
-    // Validação simples de CPF (exemplo)
+    // Validação de CPF (11 dígitos)
     if (!/^\d{11}$/.test(formData.cpf)) {
       setError('CPF inválido. Deve conter 11 dígitos.');
+      setLoading(false);
+      return;
+    }
+
+    // Validação de Email
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      setError('Email inválido.');
+      setLoading(false);
       return;
     }
 
@@ -30,21 +43,32 @@ export default function Checkout() {
       const response = await fetch('https://ebook-recomecos-backend.onrender.com/api/pedido', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...formData, livroId: 1, amount: 19.90 }),
+        body: JSON.stringify({
+          ...formData,
+          livroId: 1,
+          amount: 19.90,
+          currency: 'BRL',
+        }),
       });
 
       if (response.ok) {
-        const { redirectUrl } = await response.json();
-        window.location.href = redirectUrl; // Redireciona pro PagBank
+        const { payment_url } = await response.json();
+        setSuccess('Redirecionando para o PagBank...');
+        setTimeout(() => {
+          window.location.href = payment_url; // Redireciona pro PagBank
+        }, 1000);
       } else {
-        setError('Erro ao processar o pedido. Tente novamente.');
+        const errorData = await response.json();
+        setError(errorData.error || 'Erro ao processar o pedido. Tente novamente.');
+        setLoading(false);
       }
     } catch (err) {
       setError('Erro de conexão com o servidor.');
+      setLoading(false);
     }
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
@@ -111,9 +135,23 @@ export default function Checkout() {
               required
             />
           </label>
+          <label>
+            Método de Pagamento:
+            <select
+              name="paymentMethod"
+              value={formData.paymentMethod}
+              onChange={handleInputChange}
+              className="input"
+            >
+              <option value="creditCard">Cartão de Crédito</option>
+              <option value="pix">Pix</option>
+              <option value="boleto">Boleto</option>
+            </select>
+          </label>
           {error && <p className="error">{error}</p>}
-          <button type="submit" className="button">
-            Prosseguir para Pagamento
+          {success && <p className="success">{success}</p>}
+          <button type="submit" className="button" disabled={loading}>
+            {loading ? 'Processando...' : 'Prosseguir para Pagamento'}
           </button>
         </form>
 
