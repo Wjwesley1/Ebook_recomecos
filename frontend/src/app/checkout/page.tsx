@@ -9,13 +9,14 @@ export default function Checkout() {
     email: '',
     cpf: '',
     endereco: '',
-    paymentMethod: 'creditCard', // Opções: creditCard, pix, boleto
+    paymentMethod: 'creditCard',
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState('');
 
   useEffect(() => {
+    console.log('useEffect: isClient', isClient);
     setIsClient(true);
   }, []);
 
@@ -24,15 +25,14 @@ export default function Checkout() {
     setError('');
     setSuccess('');
     setLoading(true);
+    console.log('handleSubmit: formData', formData);
 
-    // Validação de CPF (11 dígitos)
     if (!/^\d{11}$/.test(formData.cpf)) {
       setError('CPF inválido. Deve conter 11 dígitos.');
       setLoading(false);
       return;
     }
 
-    // Validação de Email
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       setError('Email inválido.');
       setLoading(false);
@@ -40,6 +40,7 @@ export default function Checkout() {
     }
 
     try {
+      console.log('Enviando POST para /api/pedido...');
       const response = await fetch('https://ebook-recomecos-backend.onrender.com/api/pedido', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -51,19 +52,29 @@ export default function Checkout() {
         }),
       });
 
+      console.log('Resposta do fetch:', response);
       if (response.ok) {
-        const { payment_url } = await response.json();
+        const data = await response.json();
+        console.log('Dados recebidos:', data);
+        if (!data.payment_url) {
+          throw new Error('payment_url não encontrado na resposta');
+        }
         setSuccess('Redirecionando para o PagBank...');
         setTimeout(() => {
-          window.location.href = payment_url; // Redireciona pro PagBank
+          console.log('Redirecionando para:', data.payment_url);
+          window.location.href = data.payment_url;
         }, 1000);
       } else {
         const errorData = await response.json();
+        console.error('Erro na resposta:', errorData);
         setError(errorData.error || 'Erro ao processar o pedido. Tente novamente.');
         setLoading(false);
       }
     } catch (err) {
-      setError('Erro de conexão com o servidor.');
+      console.error('Erro no fetch:', err);
+      const errorMessage =
+        err instanceof Error ? err.message : String(err);
+      setError('Erro de conexão com o servidor: ' + errorMessage);
       setLoading(false);
     }
   };
@@ -75,21 +86,17 @@ export default function Checkout() {
 
   return (
     <div>
-      {/* Navbar */}
       <nav className="navbar">
         <Link href="/" className="navbar-logo">
           Ebook Recomeços
         </Link>
       </nav>
-
-      {/* Conteúdo Principal */}
       <div className="container">
         <h1>Checkout</h1>
         <div className="price-container">
           <span className="price">R$19,90</span>
           <span className="price-old">R$99,90</span>
         </div>
-
         <form onSubmit={handleSubmit} className="form">
           <label>
             Nome:
@@ -154,7 +161,6 @@ export default function Checkout() {
             {loading ? 'Processando...' : 'Prosseguir para Pagamento'}
           </button>
         </form>
-
         {isClient && (
           <div className="footer">
             <img src="/pagbank-logo.png" alt="PagBank" />
