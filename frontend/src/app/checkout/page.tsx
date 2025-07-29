@@ -13,7 +13,22 @@ export default function Checkout() {
 
   const backendUrl = 'https://ebook-recomecos-backend.onrender.com/api/pedido';
 
-  const handleSubmit = async (e) => {
+  interface PedidoRequest {
+    nome: string;
+    email: string;
+    endereco: string;
+    cpf: string;
+    livroId: number;
+    amount: number;
+    paymentMethod: string;
+  }
+
+  interface PedidoResponse {
+    payment_url: string;
+    error?: string;
+  }
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError('');
     setLoading(true);
@@ -31,10 +46,10 @@ export default function Checkout() {
           livroId: 1,
           amount: 19.90,
           paymentMethod
-        }),
+        } as PedidoRequest),
       });
 
-      const data = await response.json();
+      const data: PedidoResponse = await response.json();
       if (response.ok) {
         console.log('Redirecionando para:', data.payment_url);
         window.location.href = data.payment_url;
