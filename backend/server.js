@@ -6,48 +6,18 @@ const axiosRetry = require('axios-retry').default;
 require('dotenv').config();
 
 const app = express();
-const port = process.env.PORT || 5000; // Usar $PORT do Render, fallback pra 5000 localmente
+const port = process.env.PORT || 5000;
 
-// Middleware manual para CORS
-app.use((req, res, next) => {
-  const origin = req.get('Origin');
-  const allowedOrigins = ['http://localhost:3000', 'https://ebook-recomecos.onrender.com'];
-  if (allowedOrigins.includes(origin)) {
-    res.setHeader('Access-Control-Allow-Origin', origin);
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Vary', 'Origin');
-  }
-  if (req.method === 'OPTIONS') {
-    console.log('Requisição OPTIONS manual recebida:', { origin, headers: req.headers });
-    return res.sendStatus(204);
-  }
-  next();
-});
-
-// Configurar CORS com middleware cors
+// Configurar CORS
 const corsOptions = {
-  origin: ['http://localhost:3000', 'https://ebook-recomecos.onrender.com'],
+  origin: ['http://localhost:3000', 'https://ebook-recomecos-frontend.onrender.com'],
   methods: ['GET', 'POST', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: ['Content-Type'],
   credentials: true
 };
 app.use(cors(corsOptions));
 
-// Rota explícita para OPTIONS /api/pedido
-app.options('/api/pedido', cors(corsOptions), (req, res) => {
-  console.log('Requisição OPTIONS específica recebida em /api/pedido:', { origin: req.get('Origin'), headers: req.headers });
-  res.sendStatus(204);
-});
-
 app.use(express.json());
-
-// Rota raiz para debug
-app.get('/', (req, res) => {
-  console.log('Requisição recebida em /');
-  res.send('Servidor Ebook Recomeços Backend rodando!');
-});
 
 // Configurar conexão com o banco
 const pool = new Pool({
@@ -75,7 +45,7 @@ axiosRetry(axiosInstance, {
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
-  console.log('Requisição recebida em /api/health', { origin: req.get('Origin') });
+  console.log('Requisição em /api/health:', { origin: req.get('Origin') });
   res.json({ status: 'OK' });
 });
 
@@ -91,18 +61,39 @@ app.get('/api/debug-dns', async (req, res) => {
   });
 });
 
+// Validação de CPF
+const validateCPF = (cpf) => {
+  cpf = cpf.replace(/[^\d]+/g, '');
+  if (cpf.length !== 11 || /^(\d)\1+$/.test(cpf)) return false;
+  let sum = 0;
+  for (let i = 0; i < 9; i++) sum += parseInt(cpf.charAt(i)) * (10 - i);
+  let rest = 11 - (sum % 11);
+  if (rest === 10 || rest === 11) rest = 0;
+  if (rest !== parseInt(cpf.charAt(9))) return false;
+  sum = 0;
+  for (let i = 0; i < 10; i++) sum += parseInt(cpf.charAt(i)) * (11 - i);
+  rest = 11 - (sum % 11);
+  if (rest === 10 || rest === 11) rest = 0;
+  return rest === parseInt(cpf.charAt(10));
+};
+
 // Endpoint para criar pedido
 app.post('/api/pedido', async (req, res) => {
-  console.log('Requisição POST recebida em /api/pedido:', { origin: req.get('Origin') });
+  console.log('Requisição POST em /api/pedido:', { origin: req.get('Origin'), body: req.body });
   const { nome, email, endereco, cpf, livroId, amount, paymentMethod } = req.body;
 
   try {
-    console.log('Dados recebidos em /api/pedido:', { nome, email, endereco, cpf, livroId, amount, paymentMethod });
+    // Validação
     if (!nome || !email || !endereco || !cpf || !livroId || !amount || !paymentMethod) {
       console.log('Erro: Campos obrigatórios faltando');
       return res.status(400).json({ error: 'Todos os campos são obrigatórios' });
     }
+    if (!validateCPF(cpf)) {
+      console.log('Erro: CPF inválido');
+      return res.status(400).json({ error: 'CPF inválido' });
+    }
 
+    // Inserir pedido no banco
     console.log('Inserindo pedido no banco...');
     const result = await pool.query(
       `INSERT INTO pedidos (nome, email, endereco, cpf, livro_id, pagbank_order_id, data_pedido)
@@ -113,9 +104,10 @@ app.post('/api/pedido', async (req, res) => {
     const pedidoId = result.rows[0].id;
     console.log('Pedido inserido com ID:', pedidoId);
 
+    // Montar requisição pro PagBank
     console.log('Montando requisição para PagBank...');
     const paymentMethods = [{ type: paymentMethod.toUpperCase() }];
-    if (paymentMethod === 'creditCard') {
+    if (paymentMethod.toLowerCase() === 'creditcard') {
       paymentMethods[0].installments = { max_number: 12 };
     }
     const requestBody = {
@@ -123,7 +115,7 @@ app.post('/api/pedido', async (req, res) => {
       customer: {
         name: nome,
         email: email,
-        tax_id: cpf,
+        tax_id: cpf.replace(/[^\d]+/g, ''),
         address: {
           street: endereco.split(',')[0]?.trim() || 'Rua Exemplo',
           number: endereco.split(',')[1]?.trim() || '123',
@@ -141,58 +133,58 @@ app.post('/api/pedido', async (req, res) => {
           quantity: 1
         }
       ],
-      payment_methods: paymentMethod === 'pix' ? [{ type: 'BOLETO' }] : paymentMethods,
-      redirect_url: 'https://ebook-recomecos.onrender.com',
+      payment_methods: paymentMethods,
+      redirect_url: 'https://ebook-recomecos-frontend.onrender.com',
       notification_urls: ['https://ebook-recomecos-backend.onrender.com/api/notificacao'],
       payment_notification_urls: ['https://ebook-recomecos-backend.onrender.com/api/notificacao']
     };
 
     console.log('Corpo da requisição para PagBank:', JSON.stringify(requestBody, null, 2));
 
+    // Enviar requisição pro PagBank
     console.log('Enviando requisição para PagBank...');
-    try {
-      const pagbankResponse = await axiosInstance.post('checkouts', requestBody);
-      console.log('Resposta do PagBank:', pagbankResponse.data);
-      const { id: pagbankOrderId, links } = pagbankResponse.data;
-      const paymentUrl = links.find((link) => link.rel === 'PAY')?.href;
+    const pagbankResponse = await axiosInstance.post('checkouts', requestBody);
+    console.log('Resposta do PagBank:', pagbankResponse.data);
+    const { id: pagbankOrderId, links } = pagbankResponse.data;
+    const paymentUrl = links.find((link) => link.rel === 'PAY')?.href;
 
-      if (!paymentUrl) {
-        console.log('Erro: Link de pagamento não encontrado');
-        throw new Error('Link de pagamento não retornado pelo PagBank');
-      }
-
-      console.log('Atualizando pedido com pagbank_order_id:', pagbankOrderId);
-      await pool.query(
-        'UPDATE pedidos SET pagbank_order_id = $1 WHERE id = $2',
-        [pagbankOrderId, pedidoId]
-      );
-
-      res.json({
-        id: pedidoId,
-        nome,
-        email,
-        endereco,
-        cpf,
-        livro_id: livroId,
-        pagbank_order_id: pagbankOrderId,
-        data_pedido: new Date().toISOString(),
-        payment_url: paymentUrl
-      });
-    } catch (pagbankError) {
-      console.error('Erro na requisição ao PagBank:', {
-        message: pagbankError.message,
-        status: pagbankError.response?.status,
-        data: pagbankError.response?.data,
-        headers: pagbankError.response?.headers
-      });
-      if (pagbankError.response?.status === 403) {
-        return res.status(500).json({ error: 'Acesso bloqueado pelo PagBank. Verifique o token ou restrições de IP.' });
-      }
-      throw pagbankError;
+    if (!paymentUrl) {
+      console.log('Erro: Link de pagamento não encontrado');
+      throw new Error('Link de pagamento não retornado pelo PagBank');
     }
+
+    // Atualizar pedido com pagbank_order_id
+    console.log('Atualizando pedido com pagbank_order_id:', pagbankOrderId);
+    await pool.query(
+      'UPDATE pedidos SET pagbank_order_id = $1 WHERE id = $2',
+      [pagbankOrderId, pedidoId]
+    );
+
+    res.json({
+      id: pedidoId,
+      nome,
+      email,
+      endereco,
+      cpf,
+      livro_id: livroId,
+      pagbank_order_id: pagbankOrderId,
+      data_pedido: new Date().toISOString(),
+      payment_url: paymentUrl
+    });
   } catch (err) {
-    console.error('Erro ao criar pedido:', err.message);
-    res.status(500).json({ error: 'Erro ao criar pedido' });
+    console.error('Erro ao criar pedido:', {
+      message: err.message,
+      status: err.response?.status,
+      data: err.response?.data,
+      headers: err.response?.headers
+    });
+    if (err.response?.status === 403) {
+      return res.status(500).json({ error: 'Acesso bloqueado pelo PagBank. Verifique o token ou restrições de IP.' });
+    }
+    if (err.response?.status === 400) {
+      return res.status(400).json({ error: 'Dados inválidos enviados ao PagBank', details: err.response.data });
+    }
+    return res.status(500).json({ error: 'Erro ao criar pedido', details: err.message });
   }
 });
 
@@ -216,18 +208,18 @@ app.post('/api/notificacao', async (req, res) => {
   }
 });
 
-// Iniciar servidor com log detalhado
+// Iniciar servidor
 app.listen(port, async () => {
-  console.log(`Iniciando servidor no ambiente: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`Usando porta: ${port}`);
+  console.log(`Servidor rodando no ambiente: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`Porta: ${port}`);
   console.log(`PAGBANK_TOKEN: ${process.env.PAGBANK_TOKEN ? 'definido' : 'não definido'}`);
   console.log(`DATABASE_URL: ${process.env.DATABASE_URL ? 'definido' : 'não definido'}`);
   try {
-    console.log('Tentando conectar ao banco...');
+    console.log('Conectando ao banco...');
     await pool.query('SELECT 1');
-    console.log('Conexão com o banco estabelecida com sucesso');
+    console.log('Conexão com o banco OK');
   } catch (err) {
-    console.error('Erro na conexão com o banco:', err.message, err.stack);
+    console.error('Erro na conexão com o banco:', err.message);
   }
   console.log(`Servidor rodando na porta ${port}`);
 });
