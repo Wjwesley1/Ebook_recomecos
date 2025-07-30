@@ -3,6 +3,7 @@ const cors = require('cors');
 const { Pool } = require('pg');
 const axios = require('axios');
 const axiosRetry = require('axios-retry').default;
+const nodemailer = require('nodemailer');
 require('dotenv').config();
 
 const app = express();
@@ -23,6 +24,15 @@ app.use(express.json());
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false }
+});
+
+// Configurar Nodemailer
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS
+  }
 });
 
 // Configurar axios com retry
@@ -100,8 +110,8 @@ app.post('/api/pedido', async (req, res) => {
     // Inserir pedido no banco
     console.log('Inserindo pedido no banco...');
     const result = await pool.query(
-      `INSERT INTO pedidos (nome, email, endereco, cpf, livro_id, pagbank_order_id, data_pedido, payment_method)
-       VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7)
+      `INSERT INTO pedidos (nome, email, endereco, cpf, livro_id, pagbank_order_id, data_pedido, payment_method, notified)
+       VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7, false)
        RETURNING id`,
       [nome, email, endereco, cpf, livroId, 'PENDING', paymentMethod]
     );
@@ -213,10 +223,50 @@ app.post('/api/notificacao', async (req, res) => {
     const { status, reference_id } = response.data;
     console.log('Atualizando status do pedido:', { status, reference_id });
     const pedidoId = reference_id.split('_')[1];
+
+    // Verificar se já foi notificado
+    const pedido = await pool.query('SELECT notified FROM pedidos WHERE id = $1', [pedidoId]);
+    if (pedido.rows[0]?.notified) {
+      console.log('Pedido já notificado, ignorando...');
+      return res.status(200).send('Notificação já processada');
+    }
+
+    // Atualizar status no banco
     await pool.query(
-      'UPDATE pedidos SET status = $1 WHERE id = $2',
+      'UPDATE pedidos SET status = $1, notified = true WHERE id = $2',
       [status, pedidoId]
     );
+
+    // Se o status for APPROVED, enviar e-mail pro solicitante
+    if (status === 'APPROVED') {
+      console.log('Status APPROVED, enviando e-mail pro solicitante...');
+      const pedidoData = await pool.query('SELECT * FROM pedidos WHERE id = $1', [pedidoId]);
+      const { nome, email, cpf, endereco, livro_id, payment_method, data_pedido } = pedidoData.rows[0];
+
+      const mailOptions = {
+        from: process.env.EMAIL_USER,
+        to: process.env.EMAIL_TO,
+        subject: `Novo Pedido Confirmado - E-book Recomeços (ID: ${pedidoId})`,
+        text: `
+          Novo pedido confirmado para o E-book Recomeços!
+          
+          Detalhes do Cliente:
+          - Nome: ${nome}
+          - E-mail: ${email}
+          - CPF: ${cpf}
+          - Endereço: ${endereco}
+          - Método de Pagamento: ${payment_method}
+          - ID do Livro: ${livro_id}
+          - Data do Pedido: ${data_pedido.toISOString()}
+          
+          Por favor, envie o e-book manualmente para o e-mail do cliente: ${email}.
+        `
+      };
+
+      await transporter.sendMail(mailOptions);
+      console.log('E-mail enviado pro solicitante:', process.env.EMAIL_TO);
+    }
+
     res.status(200).send('Notificação recebida');
   } catch (err) {
     console.error('Erro na notificação:', err.response?.data || err.message);
@@ -230,6 +280,9 @@ app.listen(port, async () => {
   console.log(`Porta: ${port}`);
   console.log(`PAGBANK_TOKEN: ${process.env.PAGBANK_TOKEN ? 'definido' : 'não definido'}`);
   console.log(`DATABASE_URL: ${process.env.DATABASE_URL ? 'definido' : 'não definido'}`);
+  console.log(`EMAIL_USER: ${process.env.EMAIL_USER ? 'definido' : 'não definido'}`);
+  console.log(`EMAIL_PASS: ${process.env.EMAIL_PASS ? 'definido' : 'não definido'}`);
+  console.log(`EMAIL_TO: ${process.env.EMAIL_TO ? 'definido' : 'não definido'}`);
   try {
     console.log('Conectando ao banco...');
     await pool.query('SELECT 1');
