@@ -160,7 +160,7 @@ app.post('/api/pedido', async (req, res) => {
         }
       ],
       payment_methods: paymentMethods,
-      redirect_url: 'https://ebook-recomecos-frontend.onrender.com',
+      redirect_url: 'https://ebook-recomecos-frontend.onrender.com/?sucesso=1',
       notification_urls: ['https://ebook-recomecos-backend.onrender.com/api/notificacao'],
       payment_notification_urls: ['https://ebook-recomecos-backend.onrender.com/api/notificacao']
     };
@@ -216,9 +216,9 @@ app.post('/api/pedido', async (req, res) => {
 
 // Endpoint de notificação do PagBank
 app.post('/api/notificacao', async (req, res) => {
+  console.log('Notificação recebida, corpo completo:', JSON.stringify(req.body, null, 2));
   const { notificationCode } = req.body;
   try {
-    console.log('Notificação recebida:', { notificationCode });
     if (!notificationCode) {
       console.log('Erro: notificationCode não fornecido');
       return res.status(400).json({ error: 'notificationCode é obrigatório' });
@@ -229,13 +229,26 @@ app.post('/api/notificacao', async (req, res) => {
     console.log('Consultando PagBank para notificação:', cleanNotificationCode);
 
     // Tentar consultar notificação no PagBank
-    const response = await axiosInstance.get(`orders/notifications/${cleanNotificationCode}`);
-    console.log('Resposta do PagBank:', response.data);
+    let response;
+    try {
+      response = await axiosInstance.get(`orders/notifications/${cleanNotificationCode}`);
+      console.log('Resposta do PagBank (notificação):', response.data);
+    } catch (err) {
+      console.error('Erro ao consultar notificação, tentando consultar checkout:', {
+        message: err.message,
+        status: err.response?.status,
+        data: err.response?.data
+      });
+      // Fallback: consultar o status do checkout diretamente
+      response = await axiosInstance.get(`checkouts/${cleanNotificationCode}`);
+      console.log('Resposta do PagBank (checkout):', response.data);
+    }
+
     const { status, reference_id } = response.data;
     const pedidoId = reference_id.split('_')[1];
 
     // Verificar se pedido existe
-    const pedido = await pool.query('SELECT notified FROM pedidos WHERE id = $1', [pedidoId]);
+    const pedido = await pool.query('SELECT notified, pagbank_order_id FROM pedidos WHERE id = $1', [pedidoId]);
     if (!pedido.rows.length) {
       console.log('Erro: Pedido não encontrado para reference_id:', reference_id);
       return res.status(404).json({ error: 'Pedido não encontrado' });
