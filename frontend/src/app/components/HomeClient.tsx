@@ -1,10 +1,14 @@
 'use client';
 
-import { useSearchParams } from 'next/navigation';
+import { useEffect, useState } from 'react';
 
 export default function HomeClient() {
-  const searchParams = useSearchParams();
-  const sucesso = searchParams ? searchParams.get('sucesso') === '1' : false;
+  const [sucesso, setSucesso] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setSucesso(params.get('sucesso') === '1');
+  }, []);
 
   const testemunhos = [
     { texto: "Uma leitura transformadora que me inspirou a dar o próximo passo!", autor: "Maria S." },
@@ -12,18 +16,18 @@ export default function HomeClient() {
   ];
 
   return (
-    <div>
+    <div className="testimonial-section">
       {sucesso && (
-        <div className="bg-green-100 text-green-800 p-4 rounded mb-6">
+        <div className="success-message">
           Pagamento realizado com sucesso! Verifique seu e-mail para mais detalhes.
         </div>
       )}
       <section>
-        <h2 className="text-2xl font-bold text-gray-800 mb-4">Depoimentos</h2>
+        <h2 className="testimonial-title">Depoimentos</h2>
         {testemunhos.map((testemunho, index) => (
-          <div key={index} className="mb-4">
-            <p className="text-gray-700">&quot;{testemunho.texto}&quot;</p>
-            <p className="text-gray-500 font-semibold">— {testemunho.autor}</p>
+          <div key={index} className="testimonial">
+            <p className="testimonial-text">&quot;{testemunho.texto}&quot;</p>
+            <p className="testimonial-author">— {testemunho.autor}</p>
           </div>
         ))}
       </section>

@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
+import Nav from '../components/Nav';
 
 export default function Checkout() {
   const [nome, setNome] = useState('');
@@ -35,18 +36,19 @@ export default function Checkout() {
 
     try {
       console.log('Enviando requisição para:', backendUrl);
+      const requestBody: PedidoRequest = {
+        nome,
+        email,
+        endereco,
+        cpf,
+        livroId: 1,
+        amount: 19.90,
+        paymentMethod
+      };
       const response = await fetch(backendUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          nome,
-          email,
-          endereco,
-          cpf,
-          livroId: 1,
-          amount: 19.90,
-          paymentMethod
-        } as PedidoRequest),
+        body: JSON.stringify(requestBody),
       });
 
       const data: PedidoResponse = await response.json();
@@ -65,36 +67,23 @@ export default function Checkout() {
   };
 
   return (
-    <div className="bg-indigo-50 min-h-screen bg-gradient-to-br from-indigo-500 to-emerald-500">
-      <nav className="bg-white p-4 shadow-md">
-        <div className="container mx-auto flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-emerald-500">Recomeços</h1>
-          <div className="space-x-4">
-            <a href="#sobre" className="text-indigo-500">Sobre o E-book</a>
-            <a href="#para-quem" className="text-indigo-500">Para Quem</a>
-            <a href="#autor" className="text-indigo-500">Autor</a>
-            <a href="#depoimentos" className="text-indigo-500">Depoimentos</a>
-            <a href="/" className="text-white bg-indigo-500 px-4 py-2 rounded">Voltar à Home</a>
-          </div>
+    <div className="hero">
+      <Suspense fallback={<div className="nav">Carregando navegação...</div>}>
+        <Nav />
+      </Suspense>
+      <main className="container main">
+        <h1 className="hero-title">Finalizar Compra: Recomeços em Tempos de Crise</h1>
+        <div className="price-container">
+          <span className="price">R$19,90</span>
+          <span className="price-old">R$99,90</span>
         </div>
-      </nav>
-      <main className="container mx-auto p-6">
-        <h1 className="text-3xl font-bold text-white mb-6">
-          Finalizar Compra: Recomeços em Tempos de Crise
-        </h1>
-        <div className="flex items-center justify-between mb-6">
-          <span className="text-2xl text-white bg-gradient-to-r from-indigo-500 to-emerald-500 p-2 rounded">
-            R$19,90
-          </span>
-          <span className="text-gray-500 line-through">R$99,90</span>
-        </div>
-        <form onSubmit={handleSubmit} className="bg-white p-6 rounded shadow-md">
+        <form onSubmit={handleSubmit} className="form">
           <input
             type="text"
             value={nome}
             onChange={(e) => setNome(e.target.value)}
             placeholder="Nome completo"
-            className="text-gray-700 mb-4 p-2 border rounded w-full"
+            className="form-input"
             required
           />
           <input
@@ -102,7 +91,7 @@ export default function Checkout() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="E-mail"
-            className="text-gray-700 mb-4 p-2 border rounded w-full"
+            className="form-input"
             required
           />
           <input
@@ -110,7 +99,7 @@ export default function Checkout() {
             value={cpf}
             onChange={(e) => setCpf(e.target.value)}
             placeholder="CPF"
-            className="text-gray-700 mb-4 p-2 border rounded w-full"
+            className="form-input"
             required
           />
           <input
@@ -118,31 +107,27 @@ export default function Checkout() {
             value={endereco}
             onChange={(e) => setEndereco(e.target.value)}
             placeholder="Endereço completo (Rua, Número, Bairro, Cidade, Estado)"
-            className="text-gray-700 mb-4 p-2 border rounded w-full"
+            className="form-input"
             required
           />
           <select
             value={paymentMethod}
             onChange={(e) => setPaymentMethod(e.target.value)}
-            className="text-gray-700 mb-4 p-2 border rounded w-full"
+            className="form-input"
             required
           >
             <option value="pix">Pix</option>
             <option value="creditcard">Cartão de Crédito</option>
             <option value="boleto">Boleto</option>
           </select>
-          {error && <p className="text-red-500 mb-4">{error}</p>}
-          <button
-            type="submit"
-            disabled={loading}
-            className="bg-gradient-to-r from-indigo-500 to-emerald-500 text-white p-2 rounded w-full"
-          >
+          {error && <p className="form-error">{error}</p>}
+          <button type="submit" disabled={loading} className="form-button">
             {loading ? 'Processando...' : 'Prosseguir para Pagamento'}
           </button>
         </form>
-        <div className="mt-4 text-center">
-          <img src="/pagbank-logo.png" alt="PagBank" className="inline-block h-8 w-auto" />
-          <p className="text-gray-700">Pagamento 100% seguro com PagBank</p>
+        <div className="pagbank-container">
+          <img src="/pagbank-logo.png" alt="PagBank" className="pagbank-logo" />
+          <p className="pagbank-text">Pagamento 100% seguro com PagBank</p>
         </div>
       </main>
     </div>
