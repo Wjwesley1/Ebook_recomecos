@@ -218,26 +218,42 @@ app.post('/api/pedido', async (req, res) => {
 app.post('/api/notificacao', async (req, res) => {
   const { notificationCode } = req.body;
   try {
-    console.log('Notificação recebida:', notificationCode);
-    const response = await axiosInstance.get(`checkouts/notifications/${notificationCode}`);
+    console.log('Notificação recebida:', { notificationCode });
+    if (!notificationCode) {
+      console.log('Erro: notificationCode não fornecido');
+      return res.status(400).json({ error: 'notificationCode é obrigatório' });
+    }
+
+    // Remover prefixo CHEC_ se presente
+    const cleanNotificationCode = notificationCode.replace(/^CHEC_/, '');
+    console.log('Consultando PagBank para notificação:', cleanNotificationCode);
+
+    // Tentar consultar notificação no PagBank
+    const response = await axiosInstance.get(`orders/notifications/${cleanNotificationCode}`);
+    console.log('Resposta do PagBank:', response.data);
     const { status, reference_id } = response.data;
-    console.log('Atualizando status do pedido:', { status, reference_id });
     const pedidoId = reference_id.split('_')[1];
 
-    // Verificar se já foi notificado
+    // Verificar se pedido existe
     const pedido = await pool.query('SELECT notified FROM pedidos WHERE id = $1', [pedidoId]);
-    if (pedido.rows[0]?.notified) {
-      console.log('Pedido já notificado, ignorando...');
+    if (!pedido.rows.length) {
+      console.log('Erro: Pedido não encontrado para reference_id:', reference_id);
+      return res.status(404).json({ error: 'Pedido não encontrado' });
+    }
+
+    if (pedido.rows[0].notified) {
+      console.log('Pedido já notificado, ignorando:', pedidoId);
       return res.status(200).send('Notificação já processada');
     }
 
-    // Atualizar status no banco
+    // Atualizar status e notified no banco
+    console.log('Atualizando status do pedido:', { pedidoId, status });
     await pool.query(
       'UPDATE pedidos SET status = $1, notified = true WHERE id = $2',
       [status, pedidoId]
     );
 
-    // Se o status for APPROVED, enviar e-mail pro solicitante
+    // Enviar e-mail se status for APPROVED
     if (status === 'APPROVED') {
       console.log('Status APPROVED, enviando e-mail pro solicitante...');
       const pedidoData = await pool.query('SELECT * FROM pedidos WHERE id = $1', [pedidoId]);
@@ -269,8 +285,14 @@ app.post('/api/notificacao', async (req, res) => {
 
     res.status(200).send('Notificação recebida');
   } catch (err) {
-    console.error('Erro na notificação:', err.response?.data || err.message);
-    res.status(500).send('Erro ao processar notificação');
+    console.error('Erro na notificação:', {
+      message: err.message,
+      code: err.code,
+      status: err.response?.status,
+      data: err.response?.data,
+      headers: err.response?.headers
+    });
+    return res.status(500).json({ error: 'Erro ao processar notificação', details: err.response?.data || err.message });
   }
 });
 
@@ -289,6 +311,13 @@ app.listen(port, async () => {
     console.log('Conexão com o banco OK');
   } catch (err) {
     console.error('Erro na conexão com o banco:', err.message);
+  }
+  try {
+    console.log('Testando conexão com Nodemailer...');
+    await transporter.verify();
+    console.log('Conexão com Nodemailer OK');
+  } catch (err) {
+    console.error('Erro na conexão com Nodemailer:', err.message);
   }
   console.log(`Servidor rodando na porta ${port}`);
 });
