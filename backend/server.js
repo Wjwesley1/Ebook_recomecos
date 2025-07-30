@@ -80,7 +80,7 @@ const validateCPF = (cpf) => {
 // Endpoint para criar pedido
 app.post('/api/pedido', async (req, res) => {
   console.log('Requisição POST em /api/pedido:', { origin: req.get('Origin'), body: req.body });
-  const { nome, email, endereco, cpf, livroId, amount, paymentMethod } = req.body;
+  const { nome, email, endereco, cpf, livroId, amount, paymentMethod, cardNumber, cardHolder, expirationDate, cvv } = req.body;
 
   try {
     // Validação
@@ -92,14 +92,18 @@ app.post('/api/pedido', async (req, res) => {
       console.log('Erro: CPF inválido');
       return res.status(400).json({ error: 'CPF inválido' });
     }
+    if (paymentMethod.toLowerCase() === 'creditcard' && (!cardNumber || !cardHolder || !expirationDate || !cvv)) {
+      console.log('Erro: Dados do cartão obrigatórios');
+      return res.status(400).json({ error: 'Dados do cartão são obrigatórios' });
+    }
 
     // Inserir pedido no banco
     console.log('Inserindo pedido no banco...');
     const result = await pool.query(
-      `INSERT INTO pedidos (nome, email, endereco, cpf, livro_id, pagbank_order_id, data_pedido)
-       VALUES ($1, $2, $3, $4, $5, $6, NOW())
+      `INSERT INTO pedidos (nome, email, endereco, cpf, livro_id, pagbank_order_id, data_pedido, payment_method)
+       VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7)
        RETURNING id`,
-      [nome, email, endereco, cpf, livroId, 'PENDING']
+      [nome, email, endereco, cpf, livroId, 'PENDING', paymentMethod]
     );
     const pedidoId = result.rows[0].id;
     console.log('Pedido inserido com ID:', pedidoId);
@@ -108,8 +112,20 @@ app.post('/api/pedido', async (req, res) => {
     console.log('Montando requisição para PagBank...');
     const paymentMethods = [{ type: paymentMethod.toUpperCase() }];
     if (paymentMethod.toLowerCase() === 'creditcard') {
-      paymentMethods[0].installments = { max_number: 12 };
+      const [expMonth, expYear] = expirationDate.split('/');
+      paymentMethods[0] = {
+        type: 'CREDIT_CARD',
+        card: {
+          number: cardNumber.replace(/\s/g, ''),
+          holder: { name: cardHolder },
+          exp_month: parseInt(expMonth, 10),
+          exp_year: parseInt(expYear, 10),
+          security_code: cvv
+        },
+        installments: { max_number: 12 }
+      };
     }
+
     const requestBody = {
       reference_id: `PEDIDO_${pedidoId}`,
       customer: {

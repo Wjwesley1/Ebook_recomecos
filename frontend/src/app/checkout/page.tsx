@@ -9,12 +9,16 @@ export default function Checkout() {
   const [cpf, setCpf] = useState('');
   const [endereco, setEndereco] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('pix');
+  const [cardNumber, setCardNumber] = useState('');
+  const [cardHolder, setCardHolder] = useState('');
+  const [expirationDate, setExpirationDate] = useState('');
+  const [cvv, setCvv] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
   const backendUrl = 'https://ebook-recomecos-backend.onrender.com/api/pedido';
 
-  interface PedidoRequest {
+  interface PedidoPayload {
     nome: string;
     email: string;
     endereco: string;
@@ -22,6 +26,10 @@ export default function Checkout() {
     livroId: number;
     amount: number;
     paymentMethod: string;
+    cardNumber?: string;
+    cardHolder?: string;
+    expirationDate?: string;
+    cvv?: string;
   }
 
   interface PedidoResponse {
@@ -34,21 +42,29 @@ export default function Checkout() {
     setError('');
     setLoading(true);
 
+    const payload: PedidoPayload = {
+      nome,
+      email,
+      endereco,
+      cpf,
+      livroId: 1,
+      amount: 19.90,
+      paymentMethod,
+    };
+
+    if (paymentMethod === 'creditcard') {
+      payload.cardNumber = cardNumber;
+      payload.cardHolder = cardHolder;
+      payload.expirationDate = expirationDate;
+      payload.cvv = cvv;
+    }
+
     try {
-      console.log('Enviando requisição para:', backendUrl);
-      const requestBody: PedidoRequest = {
-        nome,
-        email,
-        endereco,
-        cpf,
-        livroId: 1,
-        amount: 19.90,
-        paymentMethod
-      };
+      console.log('Enviando requisição para:', backendUrl, payload);
       const response = await fetch(backendUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody),
+        body: JSON.stringify(payload),
       });
 
       const data: PedidoResponse = await response.json();
@@ -120,6 +136,42 @@ export default function Checkout() {
             <option value="creditcard">Cartão de Crédito</option>
             <option value="boleto">Boleto</option>
           </select>
+          {paymentMethod === 'creditcard' && (
+            <>
+              <input
+                type="text"
+                value={cardNumber}
+                onChange={(e) => setCardNumber(e.target.value)}
+                placeholder="Número do Cartão"
+                className="form-input"
+                required
+              />
+              <input
+                type="text"
+                value={cardHolder}
+                onChange={(e) => setCardHolder(e.target.value)}
+                placeholder="Nome no Cartão"
+                className="form-input"
+                required
+              />
+              <input
+                type="text"
+                value={expirationDate}
+                onChange={(e) => setExpirationDate(e.target.value)}
+                placeholder="Data de Expiração (MM/AAAA)"
+                className="form-input"
+                required
+              />
+              <input
+                type="text"
+                value={cvv}
+                onChange={(e) => setCvv(e.target.value)}
+                placeholder="CVV"
+                className="form-input"
+                required
+              />
+            </>
+          )}
           {error && <p className="form-error">{error}</p>}
           <button type="submit" disabled={loading} className="form-button">
             {loading ? 'Processando...' : 'Prosseguir para Pagamento'}
