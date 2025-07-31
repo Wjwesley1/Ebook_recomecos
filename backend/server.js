@@ -217,35 +217,25 @@ app.post('/api/pedido', async (req, res) => {
 // Endpoint de notificação do PagBank
 app.post('/api/notificacao', async (req, res) => {
   console.log('Notificação recebida, corpo completo:', JSON.stringify(req.body, null, 2));
-  const { notificationCode } = req.body;
   try {
-    if (!notificationCode) {
-      console.log('Erro: notificationCode não fornecido');
-      return res.status(400).json({ error: 'notificationCode é obrigatório' });
+    // Ignorar notificações com corpo vazio
+    if (!req.body || Object.keys(req.body).length === 0) {
+      console.log('Erro: Corpo da notificação vazio');
+      return res.status(400).json({ error: 'Corpo da notificação vazio' });
     }
 
-    // Remover prefixo CHEC_ se presente
-    const cleanNotificationCode = notificationCode.replace(/^CHEC_/, '');
-    console.log('Consultando PagBank para notificação:', cleanNotificationCode);
-
-    // Tentar consultar notificação no PagBank
-    let response;
-    try {
-      response = await axiosInstance.get(`orders/notifications/${cleanNotificationCode}`);
-      console.log('Resposta do PagBank (notificação):', response.data);
-    } catch (err) {
-      console.error('Erro ao consultar notificação, tentando consultar checkout:', {
-        message: err.message,
-        status: err.response?.status,
-        data: err.response?.data
-      });
-      // Fallback: consultar o status do checkout diretamente
-      response = await axiosInstance.get(`checkouts/${cleanNotificationCode}`);
-      console.log('Resposta do PagBank (checkout):', response.data);
+    // Extrair status e reference_id do corpo
+    const { reference_id, charges } = req.body;
+    if (!reference_id || !charges || !charges[0]) {
+      console.log('Erro: Dados insuficientes na notificação', { reference_id, hasCharges: !!charges });
+      return res.status(400).json({ error: 'Dados insuficientes na notificação' });
     }
 
-    const { status, reference_id } = response.data;
+    const status = charges[0].status;
+    const notificationId = charges[0].payment_method?.pix?.notification_id;
     const pedidoId = reference_id.split('_')[1];
+
+    console.log('Processando notificação:', { notificationId, status, pedidoId });
 
     // Verificar se pedido existe
     const pedido = await pool.query('SELECT notified, pagbank_order_id FROM pedidos WHERE id = $1', [pedidoId]);
@@ -266,9 +256,9 @@ app.post('/api/notificacao', async (req, res) => {
       [status, pedidoId]
     );
 
-    // Enviar e-mail se status for APPROVED
-    if (status === 'APPROVED') {
-      console.log('Status APPROVED, enviando e-mail pro solicitante...');
+    // Enviar e-mail se status for PAID
+    if (status === 'PAID') {
+      console.log('Status PAID, enviando e-mail pro solicitante...');
       const pedidoData = await pool.query('SELECT * FROM pedidos WHERE id = $1', [pedidoId]);
       const { nome, email, cpf, endereco, livro_id, payment_method, data_pedido } = pedidoData.rows[0];
 
@@ -305,7 +295,7 @@ app.post('/api/notificacao', async (req, res) => {
       data: err.response?.data,
       headers: err.response?.headers
     });
-    return res.status(500).json({ error: 'Erro ao processar notificação', details: err.response?.data || err.message });
+    return res.status(500).json({ error: 'Erro ao processar notificação', details: err.message });
   }
 });
 
