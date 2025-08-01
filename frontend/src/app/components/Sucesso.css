@@ -1,0 +1,39 @@
+.sucesso-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background-color: #f4f4f9;
+  text-align: center;
+  padding: 20px;
+  font-family: Arial, sans-serif;
+}
+
+.sucesso-container h1 {
+  color: #28a745;
+  font-size: 2.5rem;
+  margin-bottom: 20px;
+}
+
+.sucesso-container p {
+  font-size: 1.2rem;
+  color: #333;
+  margin-bottom: 15px;
+  max-width: 600px;
+}
+
+.sucesso-button {
+  display: inline-block;
+  padding: 10px 20px;
+  background-color: #007bff;
+  color: white;
+  text-decoration: none;
+  border-radius: 5px;
+  font-size: 1rem;
+  transition: background-color 0.3s;
+}
+
+.sucesso-button:hover {
+  background-color: #0056b3;
+}
