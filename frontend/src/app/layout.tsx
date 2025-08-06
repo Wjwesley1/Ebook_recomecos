@@ -1,10 +1,11 @@
 import { Inter } from 'next/font/google';
-import './styles.css';
+import './globals.css'; 
 import { ReactNode } from 'react';
 
 const inter = Inter({
   subsets: ['latin'],
   variable: '--font-inter',
+  weight: ['400', '600', '700'],
 });
 
 export const metadata = {
@@ -15,21 +16,14 @@ export const metadata = {
     description: 'Adquira o e-book Recomeços por apenas R$19,90 e transforme sua vida!',
     url: 'https://ebook-recomecos-frontend.onrender.com',
     type: 'website',
-    images: [
-      {
-        url: '/og-image.jpg',
-        width: 1200,
-        height: 630,
-        alt: 'E-book Recomeços',
-      },
-    ],
+    images: [{ url: '/og-image.jpg', width: 1200, height: 630, alt: 'E-book Recomeços' }],
   },
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="pt-BR">
-      <body className={inter.variable}>{children}</body>
+    <html lang="pt-BR" className={inter.variable}>
+      <body>{children}</body>
     </html>
   );
 }

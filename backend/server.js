@@ -102,10 +102,6 @@ app.post('/api/pedido', async (req, res) => {
       console.log('Erro: CPF inválido');
       return res.status(400).json({ error: 'CPF inválido' });
     }
-    if (isNaN(amount) || amount <= 0) {
-      console.log('Erro: Valor inválido');
-      return res.status(400).json({ error: 'Valor deve ser um número positivo' });
-    }
     if (paymentMethod.toLowerCase() === 'creditcard' && (!cardNumber || !cardHolder || !expirationDate || !cvv)) {
       console.log('Erro: Dados do cartão obrigatórios');
       return res.status(400).json({ error: 'Dados do cartão são obrigatórios' });
@@ -117,7 +113,7 @@ app.post('/api/pedido', async (req, res) => {
       `INSERT INTO pedidos (nome, email, endereco, cpf, livro_id, pagbank_order_id, data_pedido, payment_method, notified)
        VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7, false)
        RETURNING id`,
-      [nome, email, endereco, cpf, livroId, 'PENDING', paymentMethod.toLowerCase()]
+      [nome, email, endereco, cpf, livroId, 'PENDING', paymentMethod]
     );
     const pedidoId = result.rows[0].id;
     console.log('Pedido inserido com ID:', pedidoId);
@@ -164,7 +160,7 @@ app.post('/api/pedido', async (req, res) => {
         }
       ],
       payment_methods: paymentMethods,
-      redirect_url: 'https://ebook-recomecos-frontend.onrender.com/sucesso',
+      redirect_url: 'https://ebook-recomecos-frontend.onrender.com/?sucesso=1',
       notification_urls: ['https://ebook-recomecos-backend.onrender.com/api/notificacao'],
       payment_notification_urls: ['https://ebook-recomecos-backend.onrender.com/api/notificacao']
     };
@@ -205,12 +201,11 @@ app.post('/api/pedido', async (req, res) => {
     console.error('Erro ao criar pedido:', {
       message: err.message,
       status: err.response?.status,
-      data: err.response?.data || 'Sem dados de resposta',
-      headers: err.response?.headers || 'Sem headers',
-      stack: err.stack
+      data: err.response?.data,
+      headers: err.response?.headers
     });
     if (err.response?.status === 403) {
-      return res.status(500).json({ error: 'Acesso bloqueado pelo PagBank. Verifique o token ou restrições de IP.', details: err.response.data });
+      return res.status(500).json({ error: 'Acesso bloqueado pelo PagBank. Verifique o token ou restrições de IP.' });
     }
     if (err.response?.status === 400) {
       return res.status(400).json({ error: 'Dados inválidos enviados ao PagBank', details: err.response.data });
@@ -237,7 +232,7 @@ app.post('/api/notificacao', async (req, res) => {
     }
 
     const status = charges[0].status;
-    const notificationId = charges[0].payment_method?.pix?.notification_id || charges[0].payment_method?.type;
+    const notificationId = charges[0].payment_method?.pix?.notification_id;
     const pedidoId = reference_id.split('_')[1];
 
     console.log('Processando notificação:', { notificationId, status, pedidoId });
@@ -297,9 +292,8 @@ app.post('/api/notificacao', async (req, res) => {
       message: err.message,
       code: err.code,
       status: err.response?.status,
-      data: err.response?.data || 'Sem dados de resposta',
-      headers: err.response?.headers || 'Sem headers',
-      stack: err.stack
+      data: err.response?.data,
+      headers: err.response?.headers
     });
     return res.status(500).json({ error: 'Erro ao processar notificação', details: err.message });
   }

@@ -10,13 +10,14 @@ interface ImageWithFallbackProps {
 
 export default function ImageWithFallback({ src, alt, className }: ImageWithFallbackProps) {
   const [imgSrc, setImgSrc] = useState(src);
+  console.log('ImageWithFallback renderizado', imgSrc); // Debug
 
   return (
     <img
       src={imgSrc}
       alt={alt}
       className={className}
-      onError={() => setImgSrc('https://via.placeholder.com/300x400')}
+      onError={() => setImgSrc('/fallback.jpg')} // Fallback local
     />
   );
 }
