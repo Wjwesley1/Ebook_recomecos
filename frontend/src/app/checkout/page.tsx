@@ -50,7 +50,7 @@ export default function Checkout() {
     };
 
     try {
-      const response = await fetch('https://api-sandbox.pagseguro.com/charges', {
+      const response = await fetch('https://ws.sandbox.pagseguro.uol.com.br/charges', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${process.env.PAGBANK_ACCESS_TOKEN}`,
