@@ -19,31 +19,33 @@ export default function Checkout() {
 
   const backendUrl = "https://ebook-recomecos-backend.onrender.com/api/pedido";
 
-  interface PedidoPayload {
-    nome: string;
-    email: string;
-    endereco: string;
-    cpf: string;
-    livroId: number;
-    amount: number;
-    paymentMethod: string;
-    cardNumber?: string;
-    cardHolder?: string;
-    expirationDate?: string;
-    cvv?: string;
-  }
+  /**
+   * @typedef {Object} PedidoPayload
+   * @property {string} nome
+   * @property {string} email
+   * @property {string} endereco
+   * @property {string} cpf
+   * @property {number} livroId
+   * @property {number} amount
+   * @property {string} paymentMethod
+   * @property {string} [cardNumber]
+   * @property {string} [cardHolder]
+   * @property {string} [expirationDate]
+   * @property {string} [cvv]
+   */
 
-  interface PedidoResponse {
-    payment_url: string;
-    error?: string;
-  }
+  /**
+   * @typedef {Object} PedidoResponse
+   * @property {string} payment_url
+   * @property {string} [error]
+   */
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
     setLoading(true);
 
-    const payload: PedidoPayload = {
+    const payload = {
       nome,
       email,
       endereco,
@@ -68,7 +70,7 @@ export default function Checkout() {
         body: JSON.stringify(payload),
       });
 
-      const data: PedidoResponse = await response.json();
+      const data = await response.json();
       if (response.ok) {
         console.log("Redirecionando para:", data.payment_url);
         window.location.href = data.payment_url;
