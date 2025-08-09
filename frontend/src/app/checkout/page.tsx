@@ -191,7 +191,7 @@ export default function Checkout() {
           </button>
         </form>
         <div className="pagbank-container animate-fadeIn">
-          <img src="/pagbank-logo.png" alt="PagBank" className="pagbank-logo" />
+          <img src="/logo_pag.png" alt="PagBank" className="pagbank-logo" />
           <p className="pagbank-text">Pagamento 100% seguro com PagBank</p>
         </div>
       </main>
