@@ -1,5 +1,5 @@
 import { Inter } from 'next/font/google';
-import './styles.css';
+import './globals.css'; 
 import { ReactNode } from 'react';
 
 const inter = Inter({
