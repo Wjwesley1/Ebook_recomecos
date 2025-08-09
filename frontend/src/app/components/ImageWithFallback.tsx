@@ -1,23 +1,28 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
-interface ImageWithFallbackProps {
-  src: string;
-  alt: string;
-  className?: string;
-}
+export default function Nav() {
+  const [isCheckout, setIsCheckout] = useState(false);
 
-export default function ImageWithFallback({ src, alt, className }: ImageWithFallbackProps) {
-  const [imgSrc, setImgSrc] = useState(src);
-  console.log('ImageWithFallback renderizado', imgSrc); // Debug
+  useEffect(() => {
+    setIsCheckout(window.location.pathname === '/checkout');
+  }, []);
 
   return (
-    <img
-      src={imgSrc}
-      alt={alt}
-      className={className}
-      onError={() => setImgSrc('/fallback.jpg')} // Fallback local
-    />
+    <nav className="nav">
+      <div className="nav-content">
+        <h1 className="nav-logo">Recomeços</h1>
+        <div className="nav-links">
+          <a href="#sobre">Sobre o E-book</a>
+          <a href="#para-quem">Para Quem</a>
+          <a href="#autor">Autor</a>
+          <a href="#depoimentos">Depoimentos</a>
+          <a href={isCheckout ? '/' : '/checkout'} className="button">
+            {isCheckout ? 'Voltar à Home' : 'Comprar Agora'}
+          </a>
+        </div>
+      </div>
+    </nav>
   );
 }
