@@ -1,23 +1,16 @@
-const nextConfig = {
+module.exports = {
   reactStrictMode: true,
-  env: {
-    NEXT_PUBLIC_CSP_HEADER: process.env.NODE_ENV === 'development' ? '' : "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://sandbox.pagseguro.uol.com.br;",
-  },
   async headers() {
-    return process.env.NODE_ENV === 'development'
-      ? []
-      : [
+    return [
+      {
+        source: '/(.*)',
+        headers: [
           {
-            source: '/:path*',
-            headers: [
-              {
-                key: 'Content-Security-Policy',
-                value: "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://sandbox.pagseguro.uol.com.br;",
-              },
-            ],
+            key: 'Content-Security-Policy',
+            value: "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://sandbox.pagseguro.uol.com.br https://assets.pagseguro.com.br;",
           },
-        ];
+        ],
+      },
+    ];
   },
 };
-
-module.exports = nextConfig;

@@ -3,6 +3,12 @@
 import { useState } from 'react';
 import Link from 'next/link';
 
+declare global {
+  interface Window {
+    PagSeguro: any;
+  }
+}
+
 export default function Checkout() {
   const [nome, setNome] = useState('');
   const [email, setEmail] = useState('');
@@ -21,9 +27,17 @@ export default function Checkout() {
     setError('');
     setLoading(true);
 
-    const payload = {
-      paymentMethod,
-      amount: 19.90,
+    if (!window.PagSeguro) {
+      setError('SDK do PagBank não carregado. Tente novamente.');
+      setLoading(false);
+      return;
+    }
+
+    const publicKey = process.env.PAGBANK_ACCESS_TOKEN; // Pega da env
+    const pagSeguro = new window.PagSeguro({
+      sessionId: null, // Não precisa de sessionId pra checkout transparente
+      publicKey: publicKey,
+      environment: 'sandbox',
       buyer: {
         name: nome,
         email,
@@ -39,51 +53,53 @@ export default function Checkout() {
           postalCode: '12345-678',
         },
       },
-      ...(paymentMethod === 'creditcard' && {
-        card: {
-          number: cardNumber,
-          holder: cardHolder,
-          expirationDate,
-          securityCode: cvv,
-        },
-      }),
-    };
+      onError: (err: any) => {
+        setError(err.message || 'Erro no pagamento.');
+        setLoading(false);
+      },
+    });
 
     try {
-      const response = await fetch('https://ws.sandbox.pagseguro.uol.com.br/charges', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${process.env.PAGBANK_ACCESS_TOKEN}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          reference_id: `REF-${Date.now()}`,
-          description: 'Compra do e-book Recomeços',
-          amount: {
-            value: (payload.amount * 100).toFixed(0),
-            currency: 'BRL',
-          },
-          payment_method: {
-            type: paymentMethod === 'creditcard' ? 'CREDIT_CARD' : paymentMethod.toUpperCase(),
-            ...(paymentMethod === 'creditcard' && {
-              installments: 1,
-              card: payload.card,
-            }),
-          },
-          notification_urls: ['https://ebook-recomecos-frontend.onrender.com/webhook'],
-          buyer: payload.buyer,
-        }),
-      });
+      if (paymentMethod === 'creditcard') {
+        const encryptedCard = await pagSeguro.encryptCard({
+          publicKey,
+          holder: cardHolder,
+          number: cardNumber,
+          expMonth: expirationDate.split('/')[0],
+          expYear: expirationDate.split('/')[1],
+          securityCode: cvv,
+        });
 
-      const data = await response.json();
-      if (response.ok && data.charge) {
-        window.location.href = data.charge.payment_response.payment_url;
-      } else {
-        setError(data.error || 'Erro ao criar o pagamento. Tente novamente.');
+        if (encryptedCard.hasErrors) {
+          setError(encryptedCard.errors.join(', '));
+          setLoading(false);
+          return;
+        }
+
+        await pagSeguro.createCardTransaction({
+          encryptedCard: encryptedCard.encryptedCard,
+          amount: 19.90,
+          referenceId: `REF-${Date.now()}`,
+        });
+      } else if (paymentMethod === 'pix') {
+        await pagSeguro.createPixTransaction({
+          amount: 19.90,
+          referenceId: `REF-${Date.now()}`,
+        });
+      } else if (paymentMethod === 'boleto') {
+        await pagSeguro.createBoletoTransaction({
+          amount: 19.90,
+          referenceId: `REF-${Date.now()}`,
+        });
+      }
+
+      const paymentUrl = pagSeguro.getPaymentUrl();
+      if (paymentUrl) {
+        window.location.href = paymentUrl;
       }
     } catch (err) {
-      console.error('Erro:', err);
-      setError('Erro ao conectar com o PagBank. Tente novamente.');
+      setError('Erro ao processar o pagamento. Tente novamente.');
+      console.error(err);
     } finally {
       setLoading(false);
     }

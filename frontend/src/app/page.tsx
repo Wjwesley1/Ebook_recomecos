@@ -1,8 +1,37 @@
 "use client";
 
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 
 export default function Home() {
+  const [countdown, setCountdown] = useState('00:00:00');
+
+  useEffect(() => {
+    const updateCountdown = () => {
+      const now = new Date().getTime();
+      const endTime = now + 24 * 60 * 60 * 1000;
+      const interval = setInterval(() => {
+        const currentTime = new Date().getTime();
+        const timeLeft = endTime - currentTime;
+        if (timeLeft <= 0) {
+          clearInterval(interval);
+          setCountdown('00:00:00');
+          return;
+        }
+        const hours = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
+        setCountdown(
+          `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds
+            .toString()
+            .padStart(2, '0')}`
+        );
+      }, 1000);
+      return () => clearInterval(interval);
+    };
+    updateCountdown();
+  }, []);
+
   return (
     <div className="bg-gray-50">
       {/* Header */}
@@ -167,7 +196,7 @@ export default function Home() {
           </div>
           <div className="mt-8 text-center">
             <p className="text-yellow-300 font-semibold">⏰ Oferta válida apenas por tempo limitado!</p>
-            <div id="countdown" className="text-2xl font-bold mt-2"></div>
+            <div className="text-2xl font-bold mt-2">{countdown}</div>
           </div>
         </div>
       </section>
@@ -208,26 +237,6 @@ export default function Home() {
           <p className="text-gray-500 text-sm">© 2025 Recomeços em Tempos de Crise. Todos os direitos reservados.</p>
         </div>
       </footer>
-
-      <script
-        dangerouslySetInnerHTML={{
-          __html: `
-            function updateCountdown() {
-              const now = new Date().getTime();
-              const endTime = now + (24 * 60 * 60 * 1000);
-              setInterval(() => {
-                const currentTime = new Date().getTime();
-                const timeLeft = endTime - currentTime;
-                const hours = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-                const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
-                const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
-                document.getElementById('countdown').innerHTML = \`\${hours.toString().padStart(2, '0')}:\${minutes.toString().padStart(2, '0')}:\${seconds.toString().padStart(2, '0')}\`;
-              }, 1000);
-            }
-            updateCountdown();
-          `,
-        }}
-      />
     </div>
   );
 }
