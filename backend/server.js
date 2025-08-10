@@ -37,7 +37,7 @@ const transporter = nodemailer.createTransport({
 
 // Configurar axios com retry
 const axiosInstance = axios.create({
-  baseURL: 'https://sandbox.api.pagseguro.com/',
+  baseURL: 'https://ws.pagseguro.uol.com.br',
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
