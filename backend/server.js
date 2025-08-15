@@ -114,15 +114,15 @@ app.post('/api/pedido', async (req, res) => {
     const pedidoId = result.rows[0].id;
     console.log('Pedido inserido com ID:', pedidoId);
 
-    // Montar requisição pro PagBank (v2 legada)
+    // Montar requisição pro PagBank (v2 legada) com e-mail fixo se necessário
     console.log('Montando requisição para PagBank...');
     const params = new URLSearchParams({
-      email: email,
-      token: process.env.PAGBANK_TOKEN, // Usa o novo token
+      email: 'wesleydejesusalvarenga@gmail.com', // Usa o e-mail associado ao token
+      token: process.env.PAGBANK_TOKEN.trim(),
       currency: 'BRL',
       itemId1: '1',
       itemDescription1: 'Ebook Recomeços',
-      itemAmount1: amount.toFixed(2), // Em reais
+      itemAmount1: amount.toFixed(2),
       itemQuantity1: '1',
       paymentMethod: paymentMethod.toUpperCase(),
       reference: `PEDIDO_${pedidoId}`,
@@ -178,7 +178,7 @@ app.post('/api/pedido', async (req, res) => {
       headers: err.response?.headers,
     });
     if (err.response?.status === 401) {
-      return res.status(500).json({ error: 'Autenticação falhou com o PagBank. Verifique o token.' });
+      return res.status(500).json({ error: 'Autenticação falhou com o PagBank. Verifique o token ou o e-mail.' });
     }
     if (err.response?.status === 400) {
       return res.status(400).json({ error: 'Dados inválidos enviados ao PagBank', details: err.response.data });
