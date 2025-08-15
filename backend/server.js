@@ -14,7 +14,7 @@ const corsOptions = {
   origin: ['http://localhost:3000', 'https://ebook-recomecos-frontend.onrender.com'],
   methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type'],
-  credentials: true
+  credentials: true,
 };
 app.use(cors(corsOptions));
 
@@ -23,7 +23,7 @@ app.use(express.json());
 // Configurar conexão com o banco
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
+  ssl: { rejectUnauthorized: false },
 });
 
 // Configurar Nodemailer
@@ -31,27 +31,22 @@ const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
     user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS
-  }
+    pass: process.env.EMAIL_PASS,
+  },
 });
-
 
 // Configurar axios com retry
 const axiosInstance = axios.create({
-  baseURL: 'https://api.pagseguro.com/checkout-sessions',
   timeout: 10000,
   headers: {
-    'Content-Type': 'application/json',
-    'Accept': 'application/json',
-    'Authorization': `Bearer ${process.env.PAGBANK_TOKEN}`,
-    'User-Agent': 'Ebook-Recomecos-Backend/1.0.0'
-  }
+    'User-Agent': 'Ebook-Recomecos-Backend/1.0.0',
+  },
 });
 
 axiosRetry(axiosInstance, {
   retries: 3,
   retryDelay: (retryCount) => retryCount * 1000,
-  retryCondition: (error) => error.code === 'ENOTFOUND' || error.response?.status === 429 || axiosRetry.isNetworkOrIdempotentRequestError(error)
+  retryCondition: (error) => error.code === 'ENOTFOUND' || error.response?.status === 429 || axiosRetry.isNetworkOrIdempotentRequestError(error),
 });
 
 // Health check endpoint
@@ -119,73 +114,50 @@ app.post('/api/pedido', async (req, res) => {
     const pedidoId = result.rows[0].id;
     console.log('Pedido inserido com ID:', pedidoId);
 
-    // Montar requisição pro PagBank
+    // Montar requisição pro PagBank (v2 legada)
     console.log('Montando requisição para PagBank...');
-    const paymentMethods = [{ type: paymentMethod.toUpperCase() }];
-    if (paymentMethod.toLowerCase() === 'creditcard') {
-      const [expMonth, expYear] = expirationDate.split('/');
-      paymentMethods[0] = {
-        type: 'CREDIT_CARD',
-        card: {
-          number: cardNumber.replace(/\s/g, ''),
-          holder: { name: cardHolder },
-          exp_month: parseInt(expMonth, 10),
-          exp_year: parseInt(expYear, 10),
-          security_code: cvv
-        },
-        installments: { max_number: 12 }
-      };
-    }
+    const params = new URLSearchParams({
+      email: email,
+      token: process.env.PAGBANK_TOKEN, // Usa o token válido atualizado
+      currency: 'BRL',
+      itemId1: '1',
+      itemDescription1: 'Ebook Recomeços',
+      itemAmount1: amount.toFixed(2), // Em reais, não centavos
+      itemQuantity1: '1',
+      paymentMethod: paymentMethod.toUpperCase(),
+      reference: `PEDIDO_${pedidoId}`,
+      notificationURL: 'https://ebook-recomecos-backend.onrender.com/api/notificacao',
+    }).toString();
 
-    const requestBody = {
-      reference_id: `PEDIDO_${pedidoId}`,
-      customer: {
-        name: nome,
-        email: email,
-        tax_id: cpf.replace(/[^\d]+/g, ''),
-        address: {
-          street: endereco.split(',')[0]?.trim() || 'Rua Exemplo',
-          number: endereco.split(',')[1]?.trim() || '123',
-          district: endereco.split(',')[2]?.trim() || 'Centro',
-          city: endereco.split(',')[3]?.trim() || 'São Paulo',
-          state: endereco.split(',')[4]?.trim() || 'SP',
-          country: 'BRA',
-          postal_code: '01452002'
-        }
-      },
-      items: [
-        {
-          name: 'Ebook Recomeços',
-          unit_amount: Math.round(amount * 100),
-          quantity: 1
-        }
-      ],
-      payment_methods: paymentMethods,
-      redirect_url: 'https://ebook-recomecos-frontend.onrender.com/?sucesso=1',
-      notification_urls: ['https://ebook-recomecos-backend.onrender.com/api/notificacao'],
-      payment_notification_urls: ['https://ebook-recomecos-backend.onrender.com/api/notificacao']
-    };
-
-    console.log('Corpo da requisição para PagBank:', JSON.stringify(requestBody, null, 2));
+    console.log('Corpo da requisição para PagBank:', params);
 
     // Enviar requisição pro PagBank
     console.log('Enviando requisição para PagBank...');
-    const pagbankResponse = await axiosInstance.post('checkouts', requestBody);
+    const pagbankResponse = await axiosInstance.post('https://ws.pagseguro.uol.com.br/v2/checkout', params, {
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+    });
     console.log('Resposta do PagBank:', pagbankResponse.data);
-    const { id: pagbankOrderId, links } = pagbankResponse.data;
-    const paymentUrl = links.find((link) => link.rel === 'PAY')?.href;
 
-    if (!paymentUrl) {
-      console.log('Erro: Link de pagamento não encontrado');
-      throw new Error('Link de pagamento não retornado pelo PagBank');
+    // Parsear XML da resposta (exemplo com xml2js)
+    const parseString = require('xml2js').parseString;
+    let checkoutCode;
+    parseString(pagbankResponse.data, (err, result) => {
+      if (err) throw err;
+      checkoutCode = result.checkout.code[0];
+    });
+
+    if (!checkoutCode) {
+      console.log('Erro: Código de checkout não encontrado');
+      throw new Error('Código de checkout não retornado pelo PagBank');
     }
 
+    const paymentUrl = `https://pagseguro.uol.com.br/v2/checkout/payment.html?code=${checkoutCode}`;
+
     // Atualizar pedido com pagbank_order_id
-    console.log('Atualizando pedido com pagbank_order_id:', pagbankOrderId);
-    await pool.query(
-      'UPDATE pedidos SET pagbank_order_id = $1 WHERE id = $2',
-      [pagbankOrderId, pedidoId]
-    );
+    console.log('Atualizando pedido com pagbank_order_id:', checkoutCode);
+    await pool.query('UPDATE pedidos SET pagbank_order_id = $1 WHERE id = $2', [checkoutCode, pedidoId]);
 
     res.json({
       id: pedidoId,
@@ -194,19 +166,19 @@ app.post('/api/pedido', async (req, res) => {
       endereco,
       cpf,
       livro_id: livroId,
-      pagbank_order_id: pagbankOrderId,
+      pagbank_order_id: checkoutCode,
       data_pedido: new Date().toISOString(),
-      payment_url: paymentUrl
+      payment_url: paymentUrl,
     });
   } catch (err) {
     console.error('Erro ao criar pedido:', {
       message: err.message,
       status: err.response?.status,
       data: err.response?.data,
-      headers: err.response?.headers
+      headers: err.response?.headers,
     });
-    if (err.response?.status === 403) {
-      return res.status(500).json({ error: 'Acesso bloqueado pelo PagBank. Verifique o token ou restrições de IP.' });
+    if (err.response?.status === 401) {
+      return res.status(500).json({ error: 'Autenticação falhou com o PagBank. Verifique o token.' });
     }
     if (err.response?.status === 400) {
       return res.status(400).json({ error: 'Dados inválidos enviados ao PagBank', details: err.response.data });
@@ -252,10 +224,7 @@ app.post('/api/notificacao', async (req, res) => {
 
     // Atualizar status e notified no banco
     console.log('Atualizando status do pedido:', { pedidoId, status });
-    await pool.query(
-      'UPDATE pedidos SET status = $1, notified = true WHERE id = $2',
-      [status, pedidoId]
-    );
+    await pool.query('UPDATE pedidos SET status = $1, notified = true WHERE id = $2', [status, pedidoId]);
 
     // Enviar e-mail se status for PAID
     if (status === 'PAID') {
@@ -280,7 +249,7 @@ app.post('/api/notificacao', async (req, res) => {
           - Data do Pedido: ${data_pedido.toISOString()}
           
           Por favor, envie o e-book manualmente para o e-mail do cliente: ${email}.
-        `
+        `,
       };
 
       await transporter.sendMail(mailOptions);
@@ -294,7 +263,7 @@ app.post('/api/notificacao', async (req, res) => {
       code: err.code,
       status: err.response?.status,
       data: err.response?.data,
-      headers: err.response?.headers
+      headers: err.response?.headers,
     });
     return res.status(500).json({ error: 'Erro ao processar notificação', details: err.message });
   }
