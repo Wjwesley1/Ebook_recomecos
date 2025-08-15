@@ -118,11 +118,11 @@ app.post('/api/pedido', async (req, res) => {
     console.log('Montando requisição para PagBank...');
     const params = new URLSearchParams({
       email: email,
-      token: process.env.PAGBANK_TOKEN, // Usa o token válido atualizado
+      token: process.env.PAGBANK_TOKEN, // Usa o token válido (ex.: da4fdc88-... ou o novo)
       currency: 'BRL',
       itemId1: '1',
       itemDescription1: 'Ebook Recomeços',
-      itemAmount1: amount.toFixed(2), // Em reais, não centavos
+      itemAmount1: amount.toFixed(2), // Em reais
       itemQuantity1: '1',
       paymentMethod: paymentMethod.toUpperCase(),
       reference: `PEDIDO_${pedidoId}`,
@@ -140,7 +140,7 @@ app.post('/api/pedido', async (req, res) => {
     });
     console.log('Resposta do PagBank:', pagbankResponse.data);
 
-    // Parsear XML da resposta (exemplo com xml2js)
+    // Parsear XML da resposta
     const parseString = require('xml2js').parseString;
     let checkoutCode;
     parseString(pagbankResponse.data, (err, result) => {
