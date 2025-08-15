@@ -89,7 +89,7 @@ app.post('/api/pedido', async (req, res) => {
   const { nome, email, endereco, cpf, livroId, amount, paymentMethod, cardNumber, cardHolder, expirationDate, cvv } = req.body;
 
   try {
-    // Validação
+    // Validação (mantida como está)
     if (!nome || !email || !endereco || !cpf || !livroId || !amount || !paymentMethod) {
       console.log('Erro: Campos obrigatórios faltando');
       return res.status(400).json({ error: 'Todos os campos são obrigatórios' });
@@ -103,7 +103,7 @@ app.post('/api/pedido', async (req, res) => {
       return res.status(400).json({ error: 'Dados do cartão são obrigatórios' });
     }
 
-    // Inserir pedido no banco
+    // Inserir pedido no banco (mantido como está)
     console.log('Inserindo pedido no banco...');
     const result = await pool.query(
       `INSERT INTO pedidos (nome, email, endereco, cpf, livro_id, pagbank_order_id, data_pedido, payment_method, notified)
@@ -118,7 +118,7 @@ app.post('/api/pedido', async (req, res) => {
     console.log('Montando requisição para PagBank...');
     const params = new URLSearchParams({
       email: email,
-      token: process.env.PAGBANK_TOKEN, // Usa o token válido (ex.: da4fdc88-... ou o novo)
+      token: process.env.PAGBANK_TOKEN, // Usa o novo token
       currency: 'BRL',
       itemId1: '1',
       itemDescription1: 'Ebook Recomeços',
