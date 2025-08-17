@@ -1,3 +1,5 @@
+'use client'
+
 export const metadata = {
   title: 'Recomeços em Tempos de Crise',
   description: 'Um guia transformador para superar desafios e recomeçar com confiança',
