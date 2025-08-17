@@ -1,4 +1,5 @@
-// Remove "use client" se não houver estado
+'use client'
+
 import Link from 'next/link';
 
 export default function Nav() {
