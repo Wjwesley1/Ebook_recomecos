@@ -1,27 +1,18 @@
-'use client'
-
-import { Inter } from 'next/font/google';
-import './globals.css';
-
-const inter = Inter({
-  subsets: ['latin'],
-  variable: '--font-inter',
-});
+// Remova 'use client' do topo
+// import { MyContextProvider } from '../context/MyContext'; // Remova se não for usado
 
 export const metadata = {
   title: 'Recomeços em Tempos de Crise',
   description: 'Um guia transformador para superar desafios e recomeçar com confiança',
   openGraph: {
     title: 'Recomeços em Tempos de Crise',
-    description: 'Adquira o e-book Recomeços por apenas R$19,90 e transforme sua vida!',
+    description: 'Um guia transformador para superar desafios e recomeçar com confiança',
     url: 'https://ebook-recomecos-frontend.onrender.com',
-    type: 'website',
     images: [
       {
-        url: '/og-image.jpg',
+        url: '/og-image.jpg', // Adicione uma imagem se tiver
         width: 1200,
         height: 630,
-        alt: 'E-book Recomeços',
       },
     ],
   },
@@ -30,7 +21,7 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="pt-BR">
-      <body className={inter.variable}>{children}</body>
+      <body>{children}</body>
     </html>
   );
 }
