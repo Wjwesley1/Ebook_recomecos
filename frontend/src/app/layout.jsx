@@ -1,4 +1,4 @@
-// Remova 'use client' do topo
+'use client'
 // import { MyContextProvider } from '../context/MyContext'; // Remova se não for usado
 
 export const metadata = {
