@@ -1,12 +1,11 @@
-'use client'
-
-import Link from 'next/link';
+'use client';
 
 export default function Nav() {
   return (
     <nav>
-      <a href="/">Home</a>
-      {/* Remova <a href="/checkout">Comprar</a> */}
+      <a href="#sobre">Sobre</a>
+      <a href="#autor">Autor</a>
+      <a href="#depoimentos">Depoimentos</a>
     </nav>
   );
 }
