@@ -1,14 +1,14 @@
-"use client";
+'use client'
 
-import { useState, Suspense } from "react";
-import Link from "next/link";
-import Nav from "../components/Nav";
+// import { useState, Suspense } from "react";
+// import Link from "next/link";
+// import Nav from "../components/Nav";
 
 export default function Checkout() {
   return (
     <div>
       <h1>Checkout</h1>
-      <p>vendas por aqui temporariamente desativadas favor efetuar compra neste site: . Estamos trabalhando para liberar em breve!</p>
+      <p>Funcionalidade de compra temporariamente desativada. Estamos trabalhando para liberar em breve!</p>
       <p>Entre em contato para mais informações.</p>
     </div>
   );

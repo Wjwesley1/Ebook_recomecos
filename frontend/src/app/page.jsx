@@ -11,9 +11,9 @@ export default function Home() {
             <a href="#autor" className="top-bar-link">Autor</a>
             <a href="#depoimentos" className="top-bar-link">Depoimentos</a>
           </div>
-          <a href="/checkout" className="top-bar-button animate-fadeIn">
+          {/* <a href="/checkout" className="top-bar-button animate-fadeIn">
             Compre Agora
-          </a>
+          </a> */}
         </div>
       </div>
       <Nav />
@@ -22,11 +22,11 @@ export default function Home() {
         <p className="hero-text animate-slideUp">Um guia transformador para superar desafios e recomeçar com confiança!</p>
         <div className="price-container animate-scaleUp">
           <span className="price">R$19,90</span>
-          <span className="price-old">R$99,90</span>
+          <span className="price-old">R$29,90</span>
         </div>
-        <a href="/checkout" className="button hover:brightness-110 transition-all duration-300 transform hover:scale-105">
+        {/* <a href="/checkout" className="button hover:brightness-110 transition-all duration-300 transform hover:scale-105">
           Adquirir Agora
-        </a>
+        </a> */}
 
         {/* Seção Sobre */}
         <section id="sobre" className="section about-section animate-fadeIn">
